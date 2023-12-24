@@ -12,16 +12,11 @@ Point3: TypeAlias = tuple[int, int, int]
 PointF: TypeAlias = tuple[float, float]
 
 
-def are_collinear(a: Point3, b: Point3) -> bool:
-    # Convert tuples to numpy arrays
-    vec_a = np.array(a)
-    vec_b = np.array(b)
-
-    # Compute the cross product
-    cross_prod = np.cross(vec_a, vec_b)
-
-    # Check if the cross product is close to zero vector
-    return np.allclose(cross_prod, [0, 0, 0])
+def are_collinear(a: Point, b: Point) -> bool:
+    ax, ay = a
+    bx, by = b
+    cross_product = ax * by - ay * bx
+    return cross_product == 0
 
 
 def solve_slae_with_constraints(
@@ -29,16 +24,16 @@ def solve_slae_with_constraints(
         b: np.ndarray,
         stones_count: int) -> bool:
     """
-    :param a: coeffs matrix, a00 = 1, a10 = 0, ... aNN+3 = (vz - vzn)
-    :param b: x1, y1, z1, ..., zN
+    :param a: coeffs matrix, a00 = 1, a10 = 0, ... aNN+2 = (vy - vyn)
+    :param b: x1, y1, ..., yN
     :param stones_count: N
     """
     # objective function: a dummy one as we just need a feasible solution
-    c = np.zeros(stones_count + 3)
+    c = np.zeros(stones_count + 2)
 
     # Bounds for the variables: first 300 variables > 0, others unrestricted
-    # x, y might be any values, while z, t1, ... tN might be >= 0
-    x_bounds = [(None, None)] * 2 + [(0, None)] * (stones_count + 1)
+    # x, y might be any values, while t1, ... tN might be >= 0
+    x_bounds = [(None, None)] * 2 + [(0, None)] * stones_count
 
     # Solving the linear programming problem
     res = linprog(c, A_eq=a, b_eq=b, bounds=x_bounds, method='highs')
@@ -75,9 +70,8 @@ class Hail:
 
     def solve(self):
         for _ in range(10000):
-            v = self.find_vector()   # e.g. (-3, 1, 2)
-            # v = (-3, 1, 2)  # it works for the sample input ([24. 13.  5.  5.  3.  4.  6.  1.])
-            # v = self._make_random_vector()
+            v = self._find_vector()   # e.g. (-3, 1)
+            # v = (-3, 1)
 
             # build coeff (a) and constant (b) matrix
             a_lst = []
@@ -85,17 +79,13 @@ class Hail:
             for i, stone in enumerate(self.stones):
                 x_coeffs = [0] * len(self.stones)
                 x_coeffs[i] = (v[0] - stone.v[0])
-                a_lst += [[1, 0, 0] + x_coeffs]
+                a_lst += [[1, 0] + x_coeffs]
 
                 y_coeffs = [0] * len(self.stones)
                 y_coeffs[i] = (v[1] - stone.v[1])
-                a_lst += [[0, 1, 0] + y_coeffs]
+                a_lst += [[0, 1] + y_coeffs]
 
-                z_coeffs = [0] * len(self.stones)
-                z_coeffs[i] = (v[2] - stone.v[2])
-                a_lst += [[0, 0, 2] + z_coeffs]
-
-                b_lst += [stone.p[0], stone.p[1], stone.p[2]]
+                b_lst += [stone.p[0], stone.p[1]]
 
             a = np.array(a_lst)
             b = np.array(b_lst)
@@ -107,20 +97,33 @@ class Hail:
                 return
         print("No solution's found")
 
-    def find_vector(self) -> Optional[Point3]:
-        # find any vector with z > 0, not collinear with any other vector
-        checked_vectors: Set[Point3] = set()
+    def plot_rays(self, output_file_path: str):
+        # plot rays in 2D and safe to file
+
+        tl = Point(0, 0)
+        br = Point(0, 0)
+        padding = 10
+
+        for stone in self.stones:
+            tl = (min(tl[0], stone.p[0] - padding), min(tl[1], stone.p[1] - padding))
+            br = (max(br[0], stone.p[0] + padding), max(br[1], stone.p[1] + padding))
+
+        # create a bitmap using the size of the bounding box
+
+
+    def _find_vector(self) -> Optional[Point]:
+        # find any vector, not collinear with any other vector
+        checked_vectors: Set[Point] = set()
 
         for attempt in range(300):
             v = self._make_random_vector()
-            # v = (-3, 1, 2)  # this one works for the test input
             if v in checked_vectors:
                 continue
             checked_vectors.add(v)
 
             pass_checks = True
             for stone in self.stones:
-                if are_collinear(stone.v, v):
+                if are_collinear((stone.v[0], stone.v[1]), v):
                     pass_checks = False
                     break
             if pass_checks:
@@ -131,11 +134,10 @@ class Hail:
         return None
 
     @classmethod
-    def _make_random_vector(cls) -> Point3:
+    def _make_random_vector(cls) -> Point:
         vx = random.randint(-150, 150)
         vy = random.randint(-150, 150)
-        vz = random.randint(1, 150)
-        v = (vx, vy, vz)
+        v = (vx, vy)
         return v
 
     def load_from_file(self, file_path: str):
@@ -145,7 +147,7 @@ class Hail:
 
 
 def solve_task():
-    hail = Hail("input_d24_small.txt")
+    hail = Hail("input_d24_small.txt")  # 11246
     hail.solve()
 
 
