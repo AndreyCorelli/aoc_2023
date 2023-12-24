@@ -1,11 +1,14 @@
 import copy
-import math
+import numpy as np
 from typing import List, TypeAlias
 
 from src.day_14_2 import find_cycle_period
 from src.file_path import read_lines
 
 Point: TypeAlias = tuple[int, int]
+
+
+STEPS_TOTAL = 26501365
 
 
 class FieldMap:
@@ -33,12 +36,17 @@ class FieldMap:
         self.waves = [[-1 for _ in range(self.w)] for _ in range(self.h)]
 
     def spread_map(self):
-        scale = 13
+        scale = 7
         for r in range(self.h):
             self.map[r] = scale * self.map[r]
 
         self.map = scale * self.map
-        self.start_point = (self.start_point[0] + self.h, self.start_point[1] + self.h)
+        start_shift = round((scale - 1) / 2)
+
+        self.start_point = (
+            self.start_point[0] + self.h * start_shift,
+            self.start_point[1] + self.w * start_shift
+        )
         self.h *= scale
         self.w *= scale
 
@@ -118,7 +126,7 @@ def main():
 
     sequence = []
     #for i in range(1, 65 + 131 + 1):
-    i = 65 + 131 * 6
+    i = 65 + 131 * 2
     solution = field_map.solve(i)
     field_map.cleanup()
     sequence.append(solution)
@@ -128,40 +136,32 @@ def main():
     print(sequence)
 
 
-def find_period():
-    sequence = [4, 8, 15, 24, 31, 41, 55, 71, 85, 102, 118, 142, 164, 193, 212, 247, 267, 305, 327, 371, 401, 446, 470, 524, 553, 615, 645, 707, 732, 806, 841, 917, 952, 1036, 1073, 1155, 1201, 1272, 1329, 1403, 1459, 1538, 1600, 1687, 1749, 1842, 1915, 2013, 2083, 2185, 2251, 2350, 2411, 2525, 2595, 2718, 2784, 2914, 2974, 3123, 3183, 3371, 3438, 3637, 3699, 3901, 3967, 4173, 4199, 4398, 4431, 4648, 4689, 4916, 4948, 5187, 5213, 5452, 5477, 5718, 5759, 5999, 6045, 6274, 6338, 6566, 6633, 6867, 6953, 7170, 7261, 7472, 7566, 7784, 7883, 8110, 8226, 8449, 8571, 8792, 8917, 9142, 9266, 9503, 9623, 9858, 9984, 10232, 10340, 10606, 10724, 10983, 11104, 11364, 11501, 11757, 11899, 12166, 12316, 12573, 12735, 12993, 13154, 13387, 13574, 13801, 14006, 14233, 14448, 14666, 14878]
-    odd = [x for i, x in enumerate(sequence) if i % 2 == 0]
-    print("Sequence (odd):")
-    print(odd)
+def find_coeffs(points: List[Point], x_n: int) -> float:
+    x_coords, y_coords = zip(*points)
 
-    print(f"S[65]={sequence[64]}, S[131]={sequence[130]}")
-    # 65: 3699, 195: 32947, 326: 77020, 457: 121984
+    # Degree of the polynomial
+    degree = len(points) - 1
 
-    src = sequence
-    print("Diffs:")
-    for _ in range(4):
-        diffs = [src[i + 1] - src[i] for i in range(len(src) - 1)]
-        print(diffs)
-        src = diffs
+    # Find polynomial coefficients
+    coeffs = np.polyfit(x_coords, y_coords, degree)
 
+    # Evaluate the polynomial at x_n
+    y_n = np.polyval(coeffs, x_n)
 
-def find_coeffs(p1, p2):
-    x1, y1 = p1
-    x2, y2 = p2
+    print(f"Predicted: {y_n}")
 
-    b = math.log(y1 / y2) / math.log(x1 / x2)
-    a = y1 / x1 ** b
-    print(f"y = {a} * x^{b}")
-
-    steps = 202300
-    y_predicted = steps ** b * a
-    print(f"Predicted: {y_predicted}")
+    return y_n
 
 
 if __name__ == "__main__":
-    main()
-    #find_period()
-    #find_coeffs((2, 77208), (5, 232442))
+    #main()
+
+    points = [
+        (i, p) for i, p in enumerate([3699, 33137, 91951])  #, 122236])  #, 173636, 232442, 298530])
+    ]
+
+    map_steps = round((STEPS_TOTAL - 65) / 131)
+    find_coeffs(points, map_steps)
 
 
 """
@@ -176,7 +176,8 @@ approx: y=3*x**2+1810 (526741799901277 - too low)
 x - number of even steps (26501365/2 + 1 = 13250683)
 x = 526741799901277 <- too low
     804230805093770 <- too high
-    80865221361 <- WTF?
+    601113643448699 Gosh!!!!
+    
 
 
 when the full square's filled, it's 7282 for odd, 7406 for even
