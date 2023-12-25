@@ -1,4 +1,5 @@
 import itertools
+import math
 from typing import List, Dict, Tuple, Set
 
 from file_path import read_lines
@@ -28,6 +29,7 @@ class Edge:
     def __init__(self, node_a: Node, node_b: Node):
         self.node_a = node_a
         self.node_b = node_b
+        self.neighbour_group: Dict[str, Tuple[int, str]] = {}
 
     def __repr__(self):
         return f"{self.node_a} - {self.node_b}"
@@ -47,33 +49,17 @@ class Graph:
         self.edges: List[Edge] = []
 
     def solve(self):
-        self._clusterize_nodes()
-        # find at least 3 groups that repeat.
-        group_occurs: Dict[str, int] = {}
-        for node in self.nodes:
-            for group in node.neighbour_group.values():
-                group_occurs[group] = group_occurs.get(group, 0) + 1
+        self._clusterize_edges()
+        # sort by multiplication: left to right part
+        edge_weight = []
+        for edge in self.edges:
+            weight = math.prod([ct for ct, names in edge.neighbour_group.values()])
+            edge_weight.append((edge, weight))
 
-        group_lst = [(g, c) for g, c in group_occurs.items()]
-        group_lst.sort(key=lambda x: (x[1], len(x[0])), reverse=True)
+        edge_weight.sort(key=lambda x: x[1], reverse=True)
+        edges = [e for e, w in edge_weight]
 
-        # find edges, connecting these groups
-        edge_by_names = {(e.node_a.name, e.node_b.name): e for e in self.edges}
-        edges: List[Edge] = []
-        for group_names, _ in group_lst[:10]:
-            # find all edges, adjacent to the groups
-            for node in self.nodes:
-                for k, v in node.neighbour_group.items():
-                    if v == group_names:
-                        name_a = node.name
-                        name_b = k
-                        edge = edge_by_names.get((name_a, name_b))
-                        if not edge:
-                            edge = edge_by_names.get((name_b, name_a))
-                        if edge not in edges:
-                            edges.append(edge)
-
-        # drop first 3 edges (do I need more if it doesn't work?)
+        print(edges)
         self._try_cutting_edges(edges[:10])
 
     def _try_cutting_edges(self, edges: List[Edge]):
@@ -138,20 +124,15 @@ class Graph:
             clusters.append(cluster)
         return clusters
 
-    def _clusterize_nodes(self):
-        for node in self.nodes:
-            self._clusterize_node(node)
+    def _clusterize_edges(self):
+        for edge in self.edges:
+            self._clusterize_edge(edge)
 
-    def _clusterize_node(self, node: Node):
+    def _clusterize_edge(self, edge: Edge):
         # use breadth scan
-        if not node.neighbours:
-            return
-        clusters = {n.name: [] for n in node.neighbours}
-        visited: Set[str] = {node.name}
-
-        queue: List[Tuple[str, Node]] = []
-        for neighbour in node.neighbours:
-            queue.append((neighbour.name, neighbour))
+        clusters = {edge.node_a.name: [], edge.node_b.name: []}
+        visited: Set[str] = set()
+        queue: List[Tuple[str, Node]] = [(edge.node_a.name, edge.node_a), (edge.node_b.name, edge.node_b)]
 
         while queue:
             cluster_name, next_node = queue.pop(0)
@@ -162,8 +143,10 @@ class Graph:
             visited.add(next_node.name)
             for neighbour in next_node.neighbours:
                 queue.append((cluster_name, neighbour))
-        for key, value in clusters.items():
-            node.neighbour_group[key] = " ".join(sorted(value))
+
+        for key, cluster in clusters.items():
+            cluster.sort()
+            edge.neighbour_group[key] = (len(cluster), " ".join(cluster))
 
     def load_from_file(self, file_path: str) -> None:
         added_nodes: Dict[str, Node] = {}
