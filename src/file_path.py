@@ -2,7 +2,7 @@ import os
 from contextlib import contextmanager
 from typing import Generator, List
 
-BASE_PATH = "/Users/andreisitaev/Downloads"
+BASE_PATH = "/Users/andreisitaev/sources/andrei/aoc_2023/data"
 
 
 @contextmanager
