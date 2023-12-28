@@ -1,0 +1,1 @@
+All attempts in this package failed, except the day_24_brute_force.py
